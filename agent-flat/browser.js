@@ -6,7 +6,24 @@ const path = require('path');
 const fs   = require('fs');
 const logger = require('./logger');
 
-const SCREENSHOT_DIR = path.join(__dirname, 'logs', 'screenshots');
+// Pick a writable logs directory.
+// First try __dirname/logs; if that is read-only (e.g. inside an AppImage
+// or notarized .app bundle), fall back to ~/.greythr-automation/logs/.
+function pickLogsDir() {
+  const candidate = path.join(__dirname, 'logs');
+  try {
+    fs.mkdirSync(candidate, { recursive: true });
+    fs.accessSync(candidate, fs.constants.W_OK);
+    return candidate;
+  } catch (_) {
+    const fallback = path.join(os.homedir(), '.greythr-automation', 'logs');
+    fs.mkdirSync(fallback, { recursive: true });
+    return fallback;
+  }
+}
+
+const LOGS_DIR = pickLogsDir();
+const SCREENSHOT_DIR = path.join(LOGS_DIR, 'screenshots');
 if (!fs.existsSync(SCREENSHOT_DIR)) fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
 // Default Chrome user-data-dir paths per platform

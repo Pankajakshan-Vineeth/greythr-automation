@@ -1,12 +1,27 @@
 'use strict';
 
 const { createLogger, format, transports } = require('winston');
+const os = require('os');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure logs directory exists
-const logsDir = path.join(__dirname, 'logs');
-if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
+// Pick a writable logs directory. Prefer the source folder, but fall back
+// to ~/.greythr-automation/logs when running from a read-only location
+// like an AppImage or .app bundle.
+function pickLogsDir() {
+  const candidate = path.join(__dirname, 'logs');
+  try {
+    fs.mkdirSync(candidate, { recursive: true });
+    fs.accessSync(candidate, fs.constants.W_OK);
+    return candidate;
+  } catch (_) {
+    const fallback = path.join(os.homedir(), '.greythr-automation', 'logs');
+    fs.mkdirSync(fallback, { recursive: true });
+    return fallback;
+  }
+}
+
+const logsDir = pickLogsDir();
 
 // Custom console format with color coding and icons
 const consoleFormat = format.combine(
