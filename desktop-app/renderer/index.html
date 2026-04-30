@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <title>GreytHR Automation</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div id="app-root">
+
+    <!-- ─── First-run wizard (visible only on first launch) ─── -->
+    <section id="wizard-shell" class="wizard-shell" hidden>
+      <div class="wizard-card">
+
+        <div class="wiz-dots">
+          <span class="dot dot-on" data-step="1"></span>
+          <span class="dot" data-step="2"></span>
+          <span class="dot" data-step="3"></span>
+          <span class="dot" data-step="4"></span>
+        </div>
+
+        <div class="wiz-step" data-step="1">
+          <div class="brand-mark big">GT</div>
+          <h2 class="wiz-h">Welcome to GreytHR Automation</h2>
+          <p class="wiz-p">Automatically signs you in and out on GreytHR at scheduled times. Runs in the background, even when this window is closed.</p>
+          <div class="wiz-info">
+            <div class="wiz-info-h">Before we start:</div>
+            <ul>
+              <li>Your GreytHR username and password</li>
+              <li>Google Chrome installed on this machine</li>
+              <li>Credentials are stored in your OS keychain — never sent anywhere</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="wiz-step" data-step="2" hidden>
+          <h2 class="wiz-h">Sign in to GreytHR</h2>
+          <p class="wiz-p">We'll test these before saving them.</p>
+          <label class="lbl">Username</label>
+          <input class="input" id="wiz-username" type="text" placeholder="your.name@company.com" />
+          <label class="lbl">Password</label>
+          <input class="input" id="wiz-password" type="password" placeholder="••••••••" />
+          <div class="row" style="margin-top: 12px; gap: 8px;">
+            <button class="btn" id="wiz-test">Test login</button>
+            <span id="wiz-test-result" class="muted"></span>
+          </div>
+        </div>
+
+        <div class="wiz-step" data-step="3" hidden>
+          <h2 class="wiz-h">Set your schedule</h2>
+          <p class="wiz-p">You can change this anytime from settings.</p>
+          <div class="row">
+            <span>Sign In time</span>
+            <input class="input" id="wiz-signin" type="time" value="09:30" style="width: 130px;" />
+          </div>
+          <div class="row">
+            <span>Sign Out time</span>
+            <input class="input" id="wiz-signout" type="time" value="18:30" style="width: 130px;" />
+          </div>
+          <label class="lbl" style="margin-top: 12px;">Days</label>
+          <div class="day-row" id="wiz-days"></div>
+          <div class="banner banner-info" id="wiz-summary" style="margin-top: 16px;"></div>
+        </div>
+
+        <div class="wiz-step" data-step="4" hidden>
+          <h2 class="wiz-h">Background launch</h2>
+          <p class="wiz-p">For scheduled runs to fire, the app needs to be running.</p>
+          <label class="check-card">
+            <input type="checkbox" id="wiz-launch-on-login" checked />
+            <span>
+              <span class="cc-h">Launch automatically when I log in</span>
+              <span class="cc-sub">Recommended. The app starts hidden in the system tray.</span>
+            </span>
+          </label>
+          <label class="check-card">
+            <input type="checkbox" id="wiz-close-to-tray" checked />
+            <span>
+              <span class="cc-h">Closing the window minimizes to tray</span>
+              <span class="cc-sub">Closing keeps the scheduler alive. Use Quit from the tray menu to fully exit.</span>
+            </span>
+          </label>
+        </div>
+
+        <div class="wiz-foot">
+          <button class="link" id="wiz-skip">Skip wizard</button>
+          <div class="wiz-actions">
+            <button class="btn" id="wiz-back" style="visibility: hidden;">Back</button>
+            <button class="btn primary" id="wiz-next">Next</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Main app shell (sidebar + content) ─── -->
+    <section id="main-shell" class="main-shell" hidden>
+
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">GT</div>
+          <div>
+            <div class="brand-name">GreytHR Automation</div>
+            <div class="brand-ver" id="topbar-ver">v0.2.0</div>
+          </div>
+        </div>
+        <div class="topbar-right">
+          <span id="agent-state" class="agent-state agent-running">● Agent running</span>
+        </div>
+      </header>
+
+      <div class="layout">
+
+        <nav class="sidebar">
+          <button class="nav-item nav-active" data-view="dashboard">Dashboard</button>
+          <button class="nav-item" data-view="schedule">Schedule</button>
+          <button class="nav-item" data-view="holidays">Holidays</button>
+          <button class="nav-item" data-view="behavior">Behavior</button>
+          <button class="nav-item" data-view="history">History</button>
+          <div class="nav-divider"></div>
+          <button class="nav-item" data-view="credentials">Credentials</button>
+          <button class="nav-item" data-view="danger">Danger zone</button>
+        </nav>
+
+        <main class="content">
+
+          <!-- DASHBOARD -->
+          <div class="view view-dashboard" data-view="dashboard">
+            <h1 class="view-h">Dashboard</h1>
+
+            <div class="card" id="welcome-card" hidden>
+              <div class="banner banner-info">
+                <span class="banner-dot"></span>
+                <div class="banner-text">
+                  <div style="font-weight: 500; margin-bottom: 4px;">Welcome to GreytHR Automation</div>
+                  <div>To get started, add your GreytHR credentials and review your schedule.</div>
+                  <div style="margin-top: 8px;">
+                    <button class="link" id="welcome-go-creds">Add credentials →</button>
+                    &nbsp;&nbsp;
+                    <button class="link" id="welcome-go-schedule">Set schedule →</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card toggle-card">
+              <div>
+                <div class="card-title" id="auto-state-h">Automation is on</div>
+                <div class="muted" id="auto-state-sub">Next: Sign In tomorrow at 09:32</div>
+              </div>
+              <div class="row" style="gap: 12px;">
+                <div class="pause-wrap">
+                  <button class="btn" id="pause-btn">Pause ▾</button>
+                  <div class="pause-menu" id="pause-menu" hidden>
+                    <button class="menu-item" data-pause="today">Pause for today</button>
+                    <button class="menu-item" data-pause="session">Pause this session</button>
+                    <button class="menu-item" data-pause="date">Pause until a date…</button>
+                  </div>
+                </div>
+                <label class="toggle">
+                  <input type="checkbox" id="main-toggle" checked />
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+
+            <div class="stat-grid" id="stat-grid"></div>
+
+            <div class="card" id="missed-card" hidden>
+              <div class="banner banner-warn">
+                <span class="banner-dot"></span>
+                <div class="banner-text">
+                  <div id="missed-text"></div>
+                  <button class="link" id="missed-why">Why didn't it run?</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title" id="today-h">Today, Tuesday 28 April</div>
+              <div id="today-runs"></div>
+            </div>
+
+            <div class="row" style="gap: 8px; margin-top: 16px;">
+              <button class="btn" id="manual-in">Sign In now</button>
+              <button class="btn" id="manual-out">Sign Out now</button>
+              <button class="btn" id="open-history">View history</button>
+            </div>
+          </div>
+
+          <!-- SCHEDULE -->
+          <div class="view view-schedule" data-view="schedule" hidden>
+            <h1 class="view-h">Schedule</h1>
+
+            <div class="card">
+              <div class="card-title">Times</div>
+              <div class="row">
+                <span>Sign In time</span>
+                <input class="input" id="set-signin" type="time" style="width: 130px;" />
+              </div>
+              <div class="row">
+                <span>Sign Out time</span>
+                <input class="input" id="set-signout" type="time" style="width: 130px;" />
+              </div>
+              <div class="row">
+                <span>Timezone</span>
+                <span class="muted" id="set-tz">Asia/Kolkata</span>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Days of the week</div>
+              <div class="muted" style="margin-bottom: 12px;">Tap to toggle. Default: Mon–Fri.</div>
+              <div class="day-row" id="set-days"></div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Random jitter</div>
+              <div class="muted" style="margin-bottom: 12px;">Fire at scheduled time ± a random amount. Recommended: ±4 minutes.</div>
+              <div class="row" style="gap: 12px;">
+                <input type="range" id="set-jitter" min="0" max="10" value="4" style="flex: 1;" />
+                <span id="set-jitter-out" style="min-width: 64px; text-align: right;">±4 min</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- HOLIDAYS -->
+          <div class="view view-holidays" data-view="holidays" hidden>
+            <h1 class="view-h">Holidays</h1>
+            <div class="card">
+              <div class="muted" style="margin-bottom: 12px;">Skip the automation on these dates. Add company and public holidays manually.</div>
+              <div class="row" style="gap: 8px;">
+                <input class="input" id="hol-date" type="date" style="flex: 1;" />
+                <input class="input" id="hol-label" type="text" placeholder="Label (e.g. May Day)" style="flex: 2;" />
+                <button class="btn" id="hol-add">Add</button>
+              </div>
+              <div id="hol-list" style="margin-top: 16px;"></div>
+            </div>
+          </div>
+
+          <!-- BEHAVIOR -->
+          <div class="view view-behavior" data-view="behavior" hidden>
+            <h1 class="view-h">Behavior</h1>
+
+            <div class="card">
+              <div class="card-title">Idempotency</div>
+              <div class="row">
+                <div>
+                  <div>Skip if already done today</div>
+                  <div class="muted">Reads the attendance widget label before clicking.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="b-skip" checked /><span class="slider"></span></label>
+              </div>
+              <div class="row">
+                <div>
+                  <div>Retry attempts on failure</div>
+                  <div class="muted">Wait 5s × attempt count between tries.</div>
+                </div>
+                <select class="input" id="b-retry" style="width: 80px;">
+                  <option value="0">0</option><option value="1">1</option>
+                  <option value="2" selected>2</option><option value="3">3</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Notifications</div>
+              <div class="row">
+                <span>Notify on success</span>
+                <label class="toggle"><input type="checkbox" id="b-notify-success" /><span class="slider"></span></label>
+              </div>
+              <div class="row">
+                <span>Notify on failure</span>
+                <label class="toggle"><input type="checkbox" id="b-notify-failure" checked /><span class="slider"></span></label>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Browser visibility</div>
+              <div class="row">
+                <div>
+                  <div>Show browser during runs</div>
+                  <div class="muted">When on, you'll see Chrome open and perform the sign-in/out — useful for confirming things work. When off, runs happen invisibly in the background. Default: on.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="b-show-browser" checked /><span class="slider"></span></label>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">App behavior</div>
+              <div class="row">
+                <div>
+                  <div>Launch automatically on login</div>
+                  <div class="muted">Required for scheduled runs to fire reliably.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="b-launch" checked /><span class="slider"></span></label>
+              </div>
+              <div class="row">
+                <div>
+                  <div>Closing window minimizes to tray</div>
+                  <div class="muted">Use Quit from the tray menu to fully exit.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="b-tray" checked /><span class="slider"></span></label>
+              </div>
+              <div class="row">
+                <div>
+                  <div>Open browser minimized during runs</div>
+                  <div class="muted">Sign-in/out happens in a window that starts minimized to your taskbar — click the taskbar icon if you want to watch.</div>
+                </div>
+                <label class="toggle"><input type="checkbox" id="b-minimized" checked /><span class="slider"></span></label>
+              </div>
+            </div>
+          </div>
+
+          <!-- HISTORY -->
+          <div class="view view-history" data-view="history" hidden>
+            <h1 class="view-h">Run history</h1>
+            <div class="card">
+              <div id="hist-list"></div>
+              <div class="row" style="gap: 8px; margin-top: 16px;">
+                <button class="btn" id="hist-copy">Copy diagnostic info</button>
+                <button class="btn" id="hist-export">Export history (JSON)</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- CREDENTIALS -->
+          <div class="view view-credentials" data-view="credentials" hidden>
+            <h1 class="view-h">Credentials</h1>
+            <div class="card">
+              <div class="muted" id="cred-summary" style="margin-bottom: 16px;">Loading…</div>
+              <label class="lbl">GreytHR username</label>
+              <input class="input" id="cred-username" type="text" placeholder="your.name@company.com" />
+              <label class="lbl">Password</label>
+              <input class="input" id="cred-password" type="password" placeholder="••••••••" />
+              <div class="row" style="margin-top: 16px; gap: 8px;">
+                <button class="btn" id="cred-save">Save credentials</button>
+                <button class="btn" id="cred-test">Test login</button>
+                <span id="cred-result" class="muted"></span>
+              </div>
+              <div class="hint" style="margin-top: 16px;">Stored in your OS keychain (macOS Keychain / Windows Credential Manager / Linux libsecret). Never sent over the network.</div>
+            </div>
+          </div>
+
+          <!-- DANGER ZONE -->
+          <div class="view view-danger" data-view="danger" hidden>
+            <h1 class="view-h">Danger zone</h1>
+            <div class="card card-danger">
+              <div class="row">
+                <div>
+                  <div>Clear saved credentials</div>
+                  <div class="muted">Removes username and password from the keychain. Scheduled runs will fail until you add them again.</div>
+                </div>
+                <button class="btn btn-danger" id="dz-clear-creds">Clear credentials</button>
+              </div>
+              <div class="row">
+                <div>
+                  <div>Reset all settings and data</div>
+                  <div class="muted">Wipes config, history, and credentials. The first-run wizard will appear next launch.</div>
+                </div>
+                <button class="btn btn-danger" id="dz-reset">Reset everything</button>
+              </div>
+            </div>
+          </div>
+
+        </main>
+      </div>
+
+      <div class="save-bar" id="save-bar" hidden>
+        <span>You have unsaved changes.</span>
+        <div class="row" style="gap: 8px;">
+          <button class="btn" id="save-discard">Discard</button>
+          <button class="btn primary" id="save-commit">Save changes</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── Diagnostic modal ─── -->
+    <div id="diag-modal" class="modal" hidden>
+      <div class="modal-card">
+        <div class="row" style="margin-bottom: 16px;">
+          <h2 style="margin: 0;" id="diag-title">Why didn't it run?</h2>
+          <button class="link" id="diag-close">Close</button>
+        </div>
+        <p class="muted" id="diag-recommendation"></p>
+        <div id="diag-events" style="margin-top: 16px;"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

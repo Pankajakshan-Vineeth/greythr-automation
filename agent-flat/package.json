@@ -1,0 +1,28 @@
+{
+  "name": "smart-automation-agent",
+  "version": "1.0.0",
+  "description": "A personal RPA-style browser automation agent with scheduled workflows",
+  "main": "agent.js",
+  "scripts": {
+    "start": "node agent.js",
+    "start:silent": "node agent.js --silent",
+    "setup": "node setup/install.js",
+    "test": "node agent.js --test",
+    "run-workflow": "node agent.js --run"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3",
+    "playwright": "^1.44.0",
+    "chalk": "^4.1.2",
+    "winston": "^3.13.0",
+    "dotenv": "^16.4.5",
+    "node-notifier": "^10.0.1",
+    "axios": "^1.7.2"
+  },
+  "keywords": ["automation", "rpa", "playwright", "scheduler", "browser"],
+  "author": "Smart Automation Agent",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

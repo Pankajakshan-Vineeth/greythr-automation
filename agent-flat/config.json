@@ -1,0 +1,61 @@
+{
+  "agent": {
+    "name": "Smart Automation Agent",
+    "timezone": "Asia/Kolkata",
+    "headless": false,
+    "slowMo": 150,
+    "screenshotOnFailure": true,
+    "maxRetries": 3,
+    "retryDelay": 5000,
+    "notificationsEnabled": true,
+    "useRealChrome": false,
+    "chromeProfilePath": "",
+    "chromeProfileName": "Default"
+  },
+  "workflows": [
+    {
+      "id": "greyhr-login",
+      "name": "GreyHR - Daily Login",
+      "description": "Logs in to the GreyHR portal weekdays at 9:30 AM",
+      "enabled": true,
+      "schedule": "28 09 * * 1-5",
+      "scheduleDescription": "Weekdays at 9:30 AM",
+      "timezone": "Asia/Kolkata",
+      "workflow": "greyhr-login",
+      "params": {
+        "url": "https://basiscloud.greythr.com/uas/portal/auth/login"
+      }
+    },
+    {
+      "id": "greyhr-logout",
+      "name": "GreyHR — Daily Attendance Sign Out",
+      "description": "Logs in to GreyHR and clicks attendance Sign Out (clock-out) weekdays at 6:30 PM",
+      "enabled": true,
+      "schedule": "31 18 * * 1-5",
+      "scheduleDescription": "Weekdays at 6:30 PM",
+      "timezone": "Asia/Kolkata",
+      "workflow": "greyhr-logout",
+      "params": {
+        "loginUrl": "https://basiscloud.greythr.com/uas/portal/auth/login"
+      }
+    }
+  ],
+  "browser": {
+    "chromium": {
+      "args": [],
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      }
+    }
+  },
+  "logging": {
+    "level": "info",
+    "maxFiles": 7,
+    "maxSize": "10m"
+  },
+  "healthCheck": {
+    "enabled": false,
+    "port": 3737
+  }
+}

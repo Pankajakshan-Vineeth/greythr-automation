@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+package-lock.json.bak
+
+# Build output
+build/
+dist/
+out/
+*.dmg
+*.exe
+*.AppImage
+*.AppImage.blockmap
+
+# Logs and runtime artifacts
+*.log
+agent-flat/logs/
+desktop-app/logs/
+
+# Credentials / sessions — must never be committed
+.env
+.env.local
+*.session.json
+
+# OS / editor noise
+.DS_Store
+.vscode/
+.idea/
+Thumbs.db
+
+# Claude Code config (per-user tooling)
+.claude/

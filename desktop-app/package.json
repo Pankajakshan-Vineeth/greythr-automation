@@ -1,0 +1,78 @@
+{
+  "name": "greythr-automation-desktop",
+  "version": "0.2.0",
+  "description": "Desktop app for GreytHR attendance automation. Wraps the existing Node agent in an Electron shell with a UI for non-technical users.",
+  "main": "main/main.js",
+  "private": true,
+  "author": "Smart Automation Agent contributors",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --publish never",
+    "build:mac": "electron-builder --mac --publish never",
+    "build:win": "electron-builder --win --publish never",
+    "build:linux": "electron-builder --linux --publish never",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "auto-launch": "^5.0.6",
+    "axios": "^1.7.2",
+    "chalk": "^4.1.2",
+    "dotenv": "^16.4.5",
+    "keytar": "^7.9.0",
+    "node-cron": "^3.0.3",
+    "node-notifier": "^10.0.1",
+    "playwright": "^1.44.0",
+    "winston": "^3.13.0"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.smartautomation.greythr",
+    "productName": "GreytHR Automation",
+    "directories": {
+      "output": "build"
+    },
+    "files": [
+      "main/**/*",
+      "renderer/**/*",
+      "icons/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../agent-flat",
+        "to": "agent-flat"
+      }
+    ],
+    "asarUnpack": [
+      "node_modules/playwright/**/*",
+      "node_modules/keytar/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg"],
+      "icon": "icons/icon.icns",
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "icons/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "icons/icon.png",
+      "category": "Office"
+    }
+  }
+}
