@@ -1,5 +1,11 @@
 'use strict';
 
+// CRITICAL: must set this before requiring playwright. Tells Playwright to
+// look for Chromium inside node_modules/playwright/.local-browsers/ instead
+// of in the user's ~/.cache/ms-playwright/. This is what makes the bundled
+// Chromium inside an AppImage or .dmg/.exe actually be found at runtime.
+process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
+
 const { chromium } = require('playwright');
 const os   = require('os');
 const path = require('path');

@@ -14,9 +14,6 @@ jobs:
       matrix:
         os: [macos-latest, windows-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        working-directory: desktop-app
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -35,24 +32,36 @@ jobs:
           sudo apt-get install -y libsecret-1-dev
 
       - name: Install agent-flat dependencies
-        run: npm install
         working-directory: agent-flat
+        run: npm install
+
+      - name: Install Playwright Chromium into agent-flat
+        working-directory: agent-flat
+        env:
+          # Install Chromium into agent-flat/node_modules/playwright/.local-browsers/
+          # so electron-builder bundles it together with agent-flat itself.
+          PLAYWRIGHT_BROWSERS_PATH: '0'
+        run: npx playwright install chromium
 
       - name: Install desktop-app dependencies
+        working-directory: desktop-app
         run: npm install
 
       - name: Build (macOS)
         if: matrix.os == 'macos-latest'
+        working-directory: desktop-app
         run: npm run build:mac
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
+        working-directory: desktop-app
         run: npm run build:win
 
       - name: Build (Linux)
         if: matrix.os == 'ubuntu-latest'
+        working-directory: desktop-app
         run: npm run build:linux
 
       - name: Upload installers as artifacts
@@ -94,8 +103,8 @@ jobs:
             ## GreytHR Automation Desktop App ${{ github.ref_name }}
 
             Download the installer for your operating system:
-            - **macOS** → `.dmg`
-            - **Windows** → `.exe` (named "Setup")
-            - **Linux** → `.AppImage`
+            - **macOS** -> `.dmg`
+            - **Windows** -> `.exe` (named "Setup")
+            - **Linux** -> `.AppImage`
 
             See the README for one-time install instructions including how to handle the unsigned-app warnings on first launch.
