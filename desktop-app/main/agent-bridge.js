@@ -49,6 +49,10 @@ class AgentBridge extends EventEmitter {
   start() {
     this._log('AgentBridge starting');
     this.rescheduleCron();
+    // Catch up on schedules that already passed earlier today within a 2-hour
+    // window — covers the "app started after the alarm should have fired" case.
+    // Non-blocking: defer to next tick so start() returns immediately.
+    setImmediate(() => { this._catchUpMissed().catch(() => {}); });
     this._log('AgentBridge started');
   }
 
@@ -97,15 +101,62 @@ class AgentBridge extends EventEmitter {
   }
 
   async _handleAlarm(action) {
-    const settings = this.settingsStore.getSettings();
-    if (settings.jitterMinutes > 0) {
-      const ms = Math.floor(Math.random() * settings.jitterMinutes * 2 * 60_000);
-      this._log(`alarm fired for ${action}; applying ${Math.round(ms / 1000)}s jitter`);
-      await sleep(ms);
-    } else {
-      this._log(`alarm fired for ${action}; no jitter`);
-    }
+    this._log(`alarm fired for ${action}`);
     await this.runOnce(action, 'alarm');
+  }
+
+  // Catch up on any schedule whose scheduled time today is in the past by
+  // <= 2 hours. Called once from start() so an app that launches a few minutes
+  // after a missed alarm still does the right thing.
+  // Guards (in order): in-progress, automation off, paused, day disabled, holiday,
+  // and a per-action recent-history check so a quick app restart doesn't double-fire.
+  async _catchUpMissed() {
+    if (this.running) {
+      this._log('catch-up: skipped, a run is already in progress');
+      return;
+    }
+    const skipCheck = this._shouldSkip();
+    if (skipCheck.skip) {
+      this._log(`catch-up: skipped (${skipCheck.reason})`);
+      return;
+    }
+
+    const settings = this.settingsStore.getSettings();
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+    const now = new Date();
+    const todayStr = todayDateString();
+    const history = this.settingsStore.getHistory();
+
+    // Collect first, fire second — so two missed actions run sequentially rather
+    // than racing each other into the busy-check in runOnce().
+    const toFire = [];
+    for (const action of ['signin', 'signout']) {
+      const timeStr = action === 'signin' ? settings.signInTime : settings.signOutTime;
+      const [hh, mm] = timeStr.split(':').map(n => parseInt(n, 10));
+      const scheduled = new Date(now);
+      scheduled.setHours(hh, mm, 0, 0);
+
+      const diffMs = now.getTime() - scheduled.getTime();
+      if (diffMs <= 0) continue;             // still in the future today
+      if (diffMs > TWO_HOURS_MS) continue;   // missed too long ago
+
+      // Skip if a run for this action already happened today within the 2-hour
+      // window — covers the case where the app restarts shortly after a catch-up.
+      const ranRecently = history.some(h =>
+        h.action === action &&
+        h.firedAt &&
+        h.firedAt.startsWith(todayStr) &&
+        (now.getTime() - new Date(h.firedAt).getTime()) <= TWO_HOURS_MS
+      );
+      if (ranRecently) continue;
+
+      toFire.push({ action, timeStr });
+    }
+
+    for (const { action, timeStr } of toFire) {
+      this._log(`catch-up: missed ${action} at ${timeStr}, firing now`);
+      await this.runOnce(action, 'catch-up');
+    }
   }
 
   // The single entry point for any workflow run, alarm-driven or manual.
@@ -186,15 +237,21 @@ class AgentBridge extends EventEmitter {
       this._log(`browser mode: ${settings.openMinimized ? 'minimized' : 'visible'}`);
 
       this._log(`running ${workflowFile}`);
-      await workflow.run(params, browserConfig);
+      const workflowResult = await workflow.run(params, browserConfig);
+
+      // Workflows now signal idempotent runs via outcome: 'already_done'.
+      // Absence of outcome means a real click happened — default to 'done'.
+      const outcome = (workflowResult && workflowResult.outcome === 'already_done')
+        ? 'already_done'
+        : 'done';
 
       const durationMs = Date.now() - new Date(startedAt).getTime();
       this.settingsStore.appendHistory({
         id: runId, firedAt: startedAt, action,
-        status: 'success', trigger, durationMs
+        status: 'success', result: outcome, trigger, durationMs
       });
-      this.settingsStore.appendLifecycle('run_result', { runId, status: 'success' });
-      this._log(`${action} succeeded in ${durationMs}ms`);
+      this.settingsStore.appendLifecycle('run_result', { runId, status: 'success', result: outcome });
+      this._log(`${action} ${outcome === 'already_done' ? 'already done' : 'succeeded'} in ${durationMs}ms`);
 
       if (settings.notifyOnSuccess && action !== 'test_login') {
         this.emit('notify', {
@@ -276,10 +333,6 @@ function todayDateString() {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
-}
-
-function sleep(ms) {
-  return new Promise(r => setTimeout(r, ms));
 }
 
 module.exports = { AgentBridge };

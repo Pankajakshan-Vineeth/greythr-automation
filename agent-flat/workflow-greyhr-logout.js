@@ -180,6 +180,32 @@ async function run(params, config) {
 
     log.info('Step 5/5 — Clicking attendance Sign Out on gt-attendance-info');
 
+    // Idempotency pre-check: race the Sign In and Sign Out locators to see
+    // which is visible on the attendance widget. If Sign In is already
+    // visible, the user is currently signed out and no click is needed.
+    const signedInCheck = browser.page
+      .locator('button.btn-primary:has-text("Sign Out")').first()
+      .waitFor({ state: 'visible', timeout: 25_000 })
+      .then(() => 'signed_in')
+      .catch(() => null);
+    const signedOutCheck = browser.page
+      .locator('button.btn-primary:has-text("Sign In")').first()
+      .waitFor({ state: 'visible', timeout: 25_000 })
+      .then(() => 'signed_out')
+      .catch(() => null);
+    const widgetState = await Promise.race([signedInCheck, signedOutCheck]);
+
+    if (widgetState === 'signed_out') {
+      log.info('[greyhr-logout] Already signed out — no action needed');
+      return {
+        success:          true,
+        alreadySignedOut: true,
+        outcome:          'already_done',
+        finalUrl:         browser.page.url(),
+        timestamp:        new Date().toISOString(),
+      };
+    }
+
     const signOutCandidates = [
       // Primary: matches the actual DOM on GreytHR's current build —
       // <button class="btn btn-primary btn-medium">Sign Out</button>.
@@ -237,6 +263,7 @@ async function run(params, config) {
         return {
           success:          true,
           alreadySignedOut: true,
+          outcome:          'already_done',
           finalUrl:         browser.page.url(),
           timestamp:        new Date().toISOString(),
         };
@@ -265,6 +292,7 @@ async function run(params, config) {
     return {
       success:         true,
       confirmed,
+      outcome:         'done',
       matchedSelector,
       finalUrl:        browser.page.url(),
       timestamp:       new Date().toISOString(),

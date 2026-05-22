@@ -10,12 +10,13 @@ const HISTORY_LIMIT = 30;
 const LIFECYCLE_LIMIT = 200;
 
 const DEFAULT_SETTINGS = {
-  enabled: false,
+  // Fresh installs come up with automation enabled — workflows refuse to run
+  // without credentials, so this is safe and avoids a confusing "off by default" UX.
+  enabled: true,
   signInTime: '09:30',
   signOutTime: '18:30',
   // Sun=0..Sat=6. Default Mon-Fri.
   days: [false, true, true, true, true, true, false],
-  jitterMinutes: 4,
   timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata',
   skipIfDone: true,
   retryAttempts: 2,

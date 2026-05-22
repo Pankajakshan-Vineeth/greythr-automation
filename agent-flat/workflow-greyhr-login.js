@@ -184,6 +184,7 @@ async function run(params, config) {
       return {
         success: true,
         confirmed: false,
+        outcome: "done",
         finalUrl: browser.page.url(),
         timestamp: new Date().toISOString(),
       };
@@ -191,6 +192,32 @@ async function run(params, config) {
 
     // ── Step 6: Click attendance Sign In on gt-attendance-info ──
     log.info("Step 6/6 — Clicking attendance Sign In on gt-attendance-info");
+
+    // Idempotency pre-check: race the Sign In and Sign Out locators to see
+    // which is visible on the attendance widget. If Sign Out is already
+    // visible, the user is currently signed in and no click is needed.
+    const signedOutCheck = browser.page
+      .locator('button.btn-primary:has-text("Sign In")').first()
+      .waitFor({ state: "visible", timeout: 25_000 })
+      .then(() => "signed_out")
+      .catch(() => null);
+    const signedInCheck = browser.page
+      .locator('button.btn-primary:has-text("Sign Out")').first()
+      .waitFor({ state: "visible", timeout: 25_000 })
+      .then(() => "signed_in")
+      .catch(() => null);
+    const widgetState = await Promise.race([signedOutCheck, signedInCheck]);
+
+    if (widgetState === "signed_in") {
+      log.info("[greyhr-login] Already signed in — no action needed");
+      return {
+        success: true,
+        alreadySignedIn: true,
+        outcome: "already_done",
+        finalUrl: browser.page.url(),
+        timestamp: new Date().toISOString(),
+      };
+    }
 
     const signInCandidates = [
       // Primary: matches the actual DOM on GreytHR's current build —
@@ -258,6 +285,7 @@ async function run(params, config) {
         return {
           success: true,
           alreadySignedIn: true,
+          outcome: "already_done",
           finalUrl: browser.page.url(),
           timestamp: new Date().toISOString(),
         };
@@ -287,6 +315,7 @@ async function run(params, config) {
       success: true,
       confirmed: true,
       attendanceConfirmed,
+      outcome: "done",
       matchedSelector,
       finalUrl: browser.page.url(),
       timestamp: new Date().toISOString(),

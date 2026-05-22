@@ -19,7 +19,6 @@
       signInTime: '09:30',
       signOutTime: '18:30',
       days: [false, true, true, true, true, true, false],
-      jitterMinutes: 4,
       timezone: 'Asia/Kolkata',
       skipIfDone: true,
       retryAttempts: 2,
@@ -45,13 +44,13 @@
     pause: { pauseUntil: null, pauseToday: null },
     sessionBypass: false,
     today: new Date().toISOString().slice(0, 10),
-    nextSignIn: nextRunStr('09:30', 4, true),
-    nextSignOut: nextRunStr('18:30', 4, false),
+    nextSignIn: nextRunStr('09:30', true),
+    nextSignOut: nextRunStr('18:30', false),
     todayRuns: [],
     missed: []
   };
 
-  function nextRunStr(timeStr, jitter, _isMorning) {
+  function nextRunStr(timeStr, _isMorning) {
     const [hh, mm] = timeStr.split(':').map(n => parseInt(n, 10));
     const now = new Date();
     const c = new Date(now);
@@ -64,8 +63,8 @@
     getState: () => Promise.resolve(JSON.parse(JSON.stringify(mockState))),
     saveSettings: (patch) => {
       Object.assign(mockState.settings, patch);
-      mockState.nextSignIn  = nextRunStr(mockState.settings.signInTime, mockState.settings.jitterMinutes, true);
-      mockState.nextSignOut = nextRunStr(mockState.settings.signOutTime, mockState.settings.jitterMinutes, false);
+      mockState.nextSignIn  = nextRunStr(mockState.settings.signInTime, true);
+      mockState.nextSignOut = nextRunStr(mockState.settings.signOutTime, false);
       return Promise.resolve({ ok: true });
     },
     toggleAutomation: (on) => {
@@ -466,7 +465,11 @@
 
     for (const exp of expected) {
       const hit = todayRuns.find(r => r.action === exp.action);
-      const pill = hit ? pillFor(hit.status) : { cls: 'pill-pending', text: 'Pending' };
+      const pill = hit
+        ? (hit.result === 'already_done'
+            ? { cls: 'pill-success', text: 'Already done' }
+            : pillFor(hit.status))
+        : { cls: 'pill-pending', text: 'Pending' };
       const dot = hit ? dotFor(hit.status) : '';
       const row = document.createElement('div');
       row.className = 'run-row';
@@ -497,9 +500,6 @@
     $('set-signout').value = state.settings.signOutTime;
     $('set-tz').textContent = state.settings.timezone;
     buildDayRow($('set-days'), pendingDays, () => markDirty());
-    $('set-jitter').value = state.settings.jitterMinutes;
-    $('set-jitter-out').textContent =
-      state.settings.jitterMinutes === 0 ? 'off' : `±${state.settings.jitterMinutes} min`;
   }
 
   function renderHolidays() {
@@ -546,7 +546,11 @@
     }
     box.innerHTML = '';
     for (const h of state.history.slice(0, 30)) {
-      const pill = pillFor(h.status);
+      // result: 'already_done' renders as the green "Already done" pill,
+      // identical in color to "Done" — only the label differs.
+      const pill = h.result === 'already_done'
+        ? { cls: 'pill-success', text: 'Already done' }
+        : pillFor(h.status);
       const row = document.createElement('div');
       row.className = 'history-row';
       const action = h.action === 'signin' ? 'Sign In'
@@ -643,11 +647,6 @@
   function wireSchedule() {
     $('set-signin').addEventListener('change', markDirty);
     $('set-signout').addEventListener('change', markDirty);
-    $('set-jitter').addEventListener('input', () => {
-      const v = parseInt($('set-jitter').value, 10);
-      $('set-jitter-out').textContent = v === 0 ? 'off' : `±${v} min`;
-      markDirty();
-    });
   }
 
   function wireHolidays() {
@@ -740,7 +739,6 @@
         signInTime: $('set-signin').value,
         signOutTime: $('set-signout').value,
         days: pendingDays.slice(),
-        jitterMinutes: parseInt($('set-jitter').value, 10),
         skipIfDone: $('b-skip').checked,
         retryAttempts: parseInt($('b-retry').value, 10),
         notifyOnSuccess: $('b-notify-success').checked,
