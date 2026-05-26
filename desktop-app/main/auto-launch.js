@@ -19,7 +19,11 @@ function getLinuxAutoLauncher() {
   if (!AutoLaunch) return null;
   linuxAutoLauncher = new AutoLaunch({
     name: 'GreytHR Automation',
-    path: app.getPath('exe')
+    // Inside an AppImage, app.getPath('exe') is the ephemeral /tmp/.mount_<random>/...
+    // path that disappears on quit. process.env.APPIMAGE is the persistent path
+    // to the .AppImage file itself, set by the AppImage runtime. Outside an
+    // AppImage (dev mode, dmg, exe) APPIMAGE is unset and we fall back to exe.
+    path: process.env.APPIMAGE || app.getPath('exe')
   });
   return linuxAutoLauncher;
 }
