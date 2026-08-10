@@ -1,6 +1,6 @@
 {
   "name": "greythr-automation-desktop",
-  "version": "0.2.0",
+  "version": "0.2.6",
   "description": "Desktop app for GreytHR attendance automation. Wraps the existing Node agent in an Electron shell with a UI for non-technical users.",
   "main": "main/main.js",
   "private": true,

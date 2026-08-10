@@ -14,6 +14,12 @@ const path = require('path');
 const cron = require('node-cron');
 const { EventEmitter } = require('events');
 
+// How often to check whether the calendar date has changed. Hourly is plenty:
+// the rollover happens at midnight and the earliest scheduled run is 09:30, so
+// the worst-case detection time of 00:59 is still hours ahead of when it
+// matters. Lower this if the schedule ever moves into the small hours.
+const DATE_CHECK_INTERVAL_MS = 60 * 60 * 1000;
+
 class AgentBridge extends EventEmitter {
   constructor({ settingsStore, credentialStore, agentFlatPath }) {
     super();
@@ -23,6 +29,8 @@ class AgentBridge extends EventEmitter {
     this.cronJobs = [];
     this.running = false;
     this.lastRunAt = null;
+    this.currentDate = todayDateString();
+    this.dateWatchTimer = null;
   }
 
   _log(text, level = 'info') {
@@ -49,6 +57,7 @@ class AgentBridge extends EventEmitter {
   start() {
     this._log('AgentBridge starting');
     this.rescheduleCron();
+    this._startDateWatch();
     // Catch up on schedules that already passed earlier today within a 2-hour
     // window — covers the "app started after the alarm should have fired" case.
     // Non-blocking: defer to next tick so start() returns immediately.
@@ -57,6 +66,7 @@ class AgentBridge extends EventEmitter {
   }
 
   stop() {
+    this._stopDateWatch();
     this._clearCron();
     this._log('AgentBridge stopped');
   }
@@ -66,6 +76,47 @@ class AgentBridge extends EventEmitter {
       try { job.stop(); } catch (_) {}
     }
     this.cronJobs = [];
+  }
+
+  // ─── Date rollover watch ──────────────────────────────────────────
+  // node-cron registers its jobs once and never revisits them, and
+  // _catchUpMissed() only runs at start(), so an app left running overnight
+  // never reconsiders anything — the next morning's alarm depends entirely on
+  // a tick loop that has been running since yesterday. Poll the calendar date
+  // instead: the first check after midnight re-arms the schedule for the new
+  // day and repaints the UI, without needing a restart.
+
+  _startDateWatch() {
+    this._stopDateWatch();
+    this.dateWatchTimer = setInterval(
+      () => this._checkDateRollover(),
+      DATE_CHECK_INTERVAL_MS
+    );
+    this._log(
+      `date watch started (every ${DATE_CHECK_INTERVAL_MS / 60_000} min, today=${this.currentDate})`
+    );
+  }
+
+  _stopDateWatch() {
+    if (this.dateWatchTimer) {
+      clearInterval(this.dateWatchTimer);
+      this.dateWatchTimer = null;
+    }
+  }
+
+  _checkDateRollover() {
+    const today = todayDateString();
+    if (today === this.currentDate) return;
+
+    const previous = this.currentDate;
+    this.currentDate = today;
+    this._log(`date rolled over: ${previous} → ${today} — re-arming schedule`);
+    this.settingsStore.appendLifecycle('date_rollover', { from: previous, to: today });
+    // rescheduleCron() clears before it registers, so this is safe to repeat.
+    this.rescheduleCron();
+    // Repaints the tray and the dashboard, which both hold a stale date until
+    // something tells them otherwise.
+    this.emit('state-change', { dateRollover: true, from: previous, to: today });
   }
 
   rescheduleCron() {

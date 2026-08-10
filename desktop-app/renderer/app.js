@@ -339,6 +339,10 @@
     // run state changes without manual refresh.
     if (window.gta && window.gta.onStateChange) {
       window.gta.onStateChange(async () => {
+        // Fires on run start/finish and on the midnight date rollover. Skip the
+        // repaint while the user has unsaved edits open, or it would discard
+        // them along with pendingDays.
+        if (dirty) return;
         state = await API.getState();
         renderAll();
       });
@@ -358,6 +362,7 @@
   }
 
   function renderAll() {
+    renderVersion();
     renderWelcome();
     renderToggle();
     renderStats();
@@ -368,6 +373,13 @@
     renderBehavior();
     renderHistory();
     renderCredentials();
+  }
+
+  // The top-bar version was static markup ("v0.2.0") and went stale across
+  // every release. Drive it from the running app's real version instead.
+  function renderVersion() {
+    const el = $('topbar-ver');
+    if (el) el.textContent = state.appVersion ? 'v' + state.appVersion : '';
   }
 
   function renderWelcome() {
@@ -670,7 +682,7 @@
   function wireHistory() {
     $('hist-copy').addEventListener('click', () => {
       const diag = {
-        version: '0.2.0',
+        version: state.appVersion || 'unknown',
         generatedAt: new Date().toISOString(),
         settings: state.settings,
         hasCredentials: state.hasCredentials,

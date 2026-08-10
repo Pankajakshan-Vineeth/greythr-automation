@@ -1,7 +1,7 @@
 // ipc.js — Wires up renderer ↔ main IPC. Mirrors the mock API surface in
 // renderer/app.js. Each handler returns a promise the renderer awaits.
 
-const { ipcMain } = require('electron');
+const { ipcMain, app } = require('electron');
 
 function todayDateString() {
   const d = new Date();
@@ -21,6 +21,9 @@ function registerIpc({
     const hasCredentials = await credentialStore.hasCredentials();
     const credentialsUsername = await credentialStore.getUsername();
     return {
+      // Sourced from package.json via Electron, so the UI can never drift from
+      // the version actually installed.
+      appVersion: app.getVersion(),
       isFirstRun: settingsStore.isFirstRun(),
       settings,
       hasCredentials,
